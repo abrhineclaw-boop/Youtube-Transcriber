@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block title %}Cross-Analyses — YouTube Transcriber{% endblock %}
+
+{% block content %}
+<div class="filter-bar">
+    <h2 class="section-title" style="margin-bottom:0">Cross-Analysis Library</h2>
+</div>
+<div id="cross-analyses-list">
+    <div class="loading"><div class="spinner"></div><span>Loading cross-analyses...</span></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+    const listEl = document.getElementById('cross-analyses-list');
+
+    try {
+        const analyses = await fetch('/api/cross-analyses').then(r => {
+            if (!r.ok) throw new Error('Failed to load');
+            return r.json();
+        });
+
+        if (!analyses.length) {
+            listEl.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:2rem">No cross-analyses yet. Select transcripts in the Library to create one.</p>';
+            return;
+        }
+
+        let html = '';
+        for (const item of analyses) {
+            const result = JSON.parse(item.result_json);
+            const transcriptIds = JSON.parse(item.transcript_ids);
+            const title = result.report_title || 'Cross-Analysis';
+            const instructions = result._instructions || '';
+            const date = new Date(item.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+            html += `
+            <a href="/cross-analysis/${item.id}" class="card cross-analysis-card" style="display:block;text-decoration:none;color:inherit;border-left:3px solid var(--accent);margin-bottom:0.75rem;cursor:pointer">
+                <div style="display:flex;gap:1rem;align-items:flex-start">
+                    <div class="concept-map-thumb" id="map-${item.id}" style="flex-shrink:0;width:200px;height:150px;background:var(--bg-elevated);border-radius:6px;overflow:hidden"></div>
+                    <div style="flex:1;min-width:0">
+                        <h3 style="margin:0 0 0.25rem 0;font-size:1rem">${escapeHtml(title)}</h3>
+                        <p style="color:var(--text-muted);font-size:0.75rem;margin:0 0 0.4rem 0">${date} &middot; ${transcriptIds.length} source${transcriptIds.length !== 1 ? 's' : ''}</p>
+                        ${instructions ? `<p style="color:var(--text-muted);font-size:0.8rem;margin:0 0 0.4rem 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(instructions)}</p>` : ''}
+                        ${result.summary ? `<p style="font-size:0.8rem;margin:0;color:var(--text);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${escapeHtml(result.summary)}</p>` : ''}
+                    </div>
+                </div>
+            </a>`;
+        }
+
+        listEl.innerHTML = html;
+
+        // Render concept maps into thumbnails
+        for (const item of analyses) {
+            const result = JSON.parse(item.result_json);
+            if (result.concept_map) {
+                const container = document.getElementById(`map-${item.id}`);
+                if (container) renderConceptMap(container, result.concept_map, true);
+            }
+        }
+    } catch (e) {
+        listEl.innerHTML = `<div class="error-msg">Failed to load cross-analyses: ${escapeHtml(e.message)}</div>`;
+    }
+});
+</script>
+{% endblock %}

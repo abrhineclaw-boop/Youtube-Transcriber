@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block title %}YouTube Transcriber{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>Submit YouTube URLs</h2>
+    <div class="submit-form">
+        <div class="form-group url-group">
+            <label for="url-input">YouTube URLs <span class="text-muted">(paste one or more, one per line)</span></label>
+            <div class="url-input-row">
+                <textarea id="url-input" rows="1" placeholder="https://www.youtube.com/watch?v=..."></textarea>
+                <button class="btn btn-sm btn-secondary" id="add-url-btn">Add</button>
+            </div>
+        </div>
+        <div class="form-group">
+            <label for="profile-select">Profile</label>
+            <div class="profile-select-row">
+                <select id="profile-select"></select>
+                <button class="btn btn-sm btn-danger" id="delete-profile-btn" title="Delete selected profile" style="display:none">&times;</button>
+            </div>
+        </div>
+        <button class="btn btn-primary" id="submit-btn" disabled>Transcribe</button>
+    </div>
+    <div id="url-queue" class="url-queue"></div>
+    <div id="submit-error" class="error-msg" style="display:none"></div>
+    <div id="profile-detail" class="profile-detail-box" style="display:none"></div>
+
+    <div class="profile-manage">
+        <span id="toggle-playlist-import" class="btn btn-sm btn-secondary" style="cursor:pointer">&#9656; Import Playlist / Channel</span>
+        <div id="playlist-import-body" class="collapsible-body">
+            <div style="margin-top:0.5rem">
+                <div class="url-input-row">
+                    <input type="text" id="playlist-url-input" placeholder="https://www.youtube.com/playlist?list=... or channel URL" style="flex:1">
+                    <button class="btn btn-sm btn-primary" id="import-playlist-btn">Import</button>
+                </div>
+                <div id="playlist-status" class="text-muted" style="margin-top:0.4rem; font-size:0.85rem"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="profile-manage">
+        <span id="toggle-profile-form" class="btn btn-sm btn-secondary" style="cursor:pointer">&#9656; New Profile</span>
+        <div id="profile-form-body" class="collapsible-body">
+            <div class="profile-form" style="margin-top:0.5rem">
+                <input type="text" id="new-profile-name" placeholder="Name">
+                <input type="text" id="new-profile-desc" placeholder="Description">
+                <textarea id="new-profile-hints" placeholder="Analysis hints — tell the AI how to interpret this type of content (optional)" rows="3"></textarea>
+                <button class="btn btn-sm btn-primary" id="add-profile-btn">Add</button>
+            </div>
+        </div>
+    </div>
+
+    <div style="margin-top:0.75rem; padding-top:0.75rem; border-top:1px solid var(--border-color, #ddd)">
+        <p class="text-muted" style="font-size:0.85rem; margin:0">
+            Drag to bookmarks bar for one-click adding from YouTube:
+            <a id="bookmarklet-link" class="btn btn-sm btn-secondary" style="cursor:grab; display:inline-block; margin-left:0.3rem">+ Transcribe</a>
+        </p>
+    </div>
+</div>
+
+<div class="section-header">
+    <h2 class="section-title" style="margin-bottom:0">Recent Transcripts</h2>
+    <a href="/library" class="btn btn-sm btn-secondary">View all &rarr;</a>
+</div>
+<div id="transcript-list">
+    <div class="loading"><div class="spinner"></div><span>Loading...</span></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const submitError = document.getElementById('submit-error');
+    const origSetText = Object.getOwnPropertyDescriptor(Node.prototype, 'textContent').set;
+    Object.defineProperty(submitError, 'textContent', {
+        set(v) {
+            origSetText.call(this, v);
+            this.style.display = v ? 'block' : 'none';
+        },
+        get() { return this.innerText; }
+    });
+
+    document.addEventListener('DOMContentLoaded', () => initHome());
+</script>
+{% endblock %}

@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block title %}Analysis — YouTube Transcriber{% endblock %}
+
+{% block content %}
+<a href="/transcript/{{ transcript_id }}" class="back-link">← Back to Transcript</a>
+
+<div class="detail-header">
+    <h1 id="analysis-title">Loading...</h1>
+</div>
+
+<div class="card">
+    <div id="analysis-content">
+        <div class="loading"><div class="spinner"></div><span>Loading analysis results...</span></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', () => initAnalysisView({{ transcript_id }}, '{{ analysis_type }}'));
+</script>
+{% endblock %}

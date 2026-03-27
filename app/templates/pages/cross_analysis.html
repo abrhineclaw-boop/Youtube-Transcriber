@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+
+{% block title %}Cross-Analysis — YouTube Transcriber{% endblock %}
+
+{% block content %}
+<div id="cross-analysis-container">
+    <div class="loading"><div class="spinner"></div><span>Loading cross-analysis...</span></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+    const container = document.getElementById('cross-analysis-container');
+    const id = {{ cross_analysis_id }};
+
+    try {
+        const data = await fetch(`/api/cross-analysis/${id}`).then(r => {
+            if (!r.ok) throw new Error('Not found');
+            return r.json();
+        });
+
+        const result = JSON.parse(data.result_json);
+        const transcriptIds = JSON.parse(data.transcript_ids);
+
+        // Load source transcript titles
+        const sources = await Promise.all(
+            transcriptIds.map(tid =>
+                fetch(`/api/transcripts/${tid}`).then(r => r.ok ? r.json() : { title: `Transcript #${tid}` })
+            )
+        );
+
+        const title = result.report_title || 'Cross-Analysis';
+
+        let html = `
+        <div class="card" style="border-left: 3px solid var(--accent)">
+            <h2 class="section-title">${escapeHtml(title)}</h2>
+            <div class="tag-list" style="margin-bottom:0.5rem">
+                ${sources.map(s => `<span class="tag">${escapeHtml(s.title || s.video_url || 'Unknown')}</span>`).join('')}
+            </div>
+            ${result.summary ? `<p class="summary-text" style="font-size:0.85rem">${escapeHtml(result.summary)}</p>` : ''}
+        </div>`;
+
+        if (result.sections && result.sections.length) {
+            result.sections.forEach(section => {
+                html += `<div class="card">
+                    <h3 class="section-title">${escapeHtml(section.heading)}</h3>
+                    <div class="summary-text" style="font-size:0.85rem;white-space:pre-line">${escapeHtml(section.content)}</div>
+                </div>`;
+            });
+        }
+
+        // Legacy support for idea_synthesis format
+        if (result.ideas && result.ideas.length) {
+            html += `<div class="card">
+                <h2 class="section-title">Ideas</h2>
+                ${result.ideas.map(idea => `
+                    <div class="extraction-item">
+                        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:0.5rem">
+                            <strong>${escapeHtml(idea.idea)}</strong>
+                            <span class="badge" style="background:rgba(108,99,255,0.2);color:var(--accent);white-space:nowrap;flex-shrink:0">${idea.sources.length} source${idea.sources.length > 1 ? 's' : ''}</span>
+                        </div>
+                        ${idea.detail ? `<p style="font-size:0.8rem;color:var(--text-muted);margin-top:0.2rem">${escapeHtml(idea.detail)}</p>` : ''}
+                        <div class="tag-list" style="margin-top:0.3rem">
+                            ${idea.sources.map(s => `<span class="tag" style="font-size:0.7rem">${escapeHtml(s)}</span>`).join('')}
+                        </div>
+                    </div>
+                `).join('')}
+            </div>`;
+        }
+
+        container.innerHTML = html;
+
+        // Render concept map (always show card — with regenerate button even if no map yet)
+        {
+            const mapCard = document.createElement('div');
+            mapCard.className = 'card';
+            mapCard.innerHTML = `
+                <div class="section-header">
+                    <h3 class="section-title" style="margin-bottom:0">Concept Map</h3>
+                    <button class="btn btn-sm btn-secondary" id="regenerate-map-btn">Regenerate</button>
+                </div>`;
+            const mapContainer = document.createElement('div');
+            mapContainer.id = 'cross-analysis-map';
+            mapContainer.style.cssText = 'width:100%;height:450px';
+            mapCard.appendChild(mapContainer);
+            const firstCard = container.querySelector('.card');
+            if (firstCard && firstCard.nextSibling) {
+                container.insertBefore(mapCard, firstCard.nextSibling);
+            } else {
+                container.appendChild(mapCard);
+            }
+            if (result.concept_map) {
+                renderConceptMap(mapContainer, result.concept_map, false);
+            } else {
+                mapContainer.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:2rem">No concept map yet. Click Regenerate to create one.</p>';
+            }
+
+            // Regenerate button handler
+            document.getElementById('regenerate-map-btn').addEventListener('click', async function() {
+                const btn = this;
+                btn.disabled = true;
+                btn.textContent = 'Regenerating...';
+                mapContainer.innerHTML = '<div class="loading" style="justify-content:center;padding:2rem"><div class="spinner"></div><span>Generating concept map...</span></div>';
+
+                try {
+                    const resp = await fetch(`/api/cross-analysis/${id}/regenerate-concept-map`, { method: 'POST' });
+                    if (!resp.ok) {
+                        const err = await resp.json().catch(() => ({ detail: 'Unknown error' }));
+                        throw new Error(err.detail || 'Failed');
+                    }
+                    const data = await resp.json();
+                    mapContainer.innerHTML = '';
+                    // Remove any existing reset button from prior render
+                    const oldReset = mapCard.querySelector('.concept-map-reset');
+                    if (oldReset) oldReset.remove();
+                    renderConceptMap(mapContainer, data.concept_map, false);
+                    btn.textContent = 'Regenerate';
+                    btn.disabled = false;
+                } catch (e) {
+                    mapContainer.innerHTML = `<div class="error-msg">Failed to regenerate: ${escapeHtml(e.message)}</div>`;
+                    btn.textContent = 'Regenerate';
+                    btn.disabled = false;
+                }
+            });
+        }
+    } catch (e) {
+        container.innerHTML = `<div class="error-msg">Failed to load cross-analysis: ${escapeHtml(e.message)}</div>`;
+    }
+});
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const d = document.createElement('div');
+    d.textContent = text;
+    return d.innerHTML;
+}
+</script>
+{% endblock %}

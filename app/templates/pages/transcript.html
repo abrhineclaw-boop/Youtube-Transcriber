@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block title %}Transcript — YouTube Transcriber{% endblock %}
+
+{% block content %}
+<a href="/library" class="back-link">← Back to Library</a>
+
+<div class="detail-header" id="detail-header">
+    <div class="loading"><div class="spinner"></div><span>Loading...</span></div>
+</div>
+
+<div id="detail-content">
+    <div class="loading"><div class="spinner"></div><span>Loading transcript details...</span></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', () => initTranscriptDetail({{ transcript_id }}));
+</script>
+{% endblock %}
